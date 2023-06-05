@@ -9,3 +9,4 @@ python main.py --model transfomerenconder --target MAP --batch_size 1 --epochs 1
 # python main.py --model BLSTM_02 --target IRM --batch_size 1 --epochs 50 \
 #                --loss mse --version jin_0608 --lr 5e-4 --task VCTK
 
+### equivalent to the command in the README.md file, run using command "sh run1.sh" in terminal

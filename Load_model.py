@@ -1,19 +1,24 @@
-import torch, os
+﻿import torch, os
 import torch.nn as nn
 from torch.optim import Adam,SGD
+### adaptive momentum, stochastic gradient descent (optionally with momentum)
 from util import *
 from torch.utils.data import DataLoader
+### heart of data-loading capabilities of PyTorch, supporting map-style and iterable-style datasets
 from sklearn.model_selection import train_test_split
-from torch.utils.data.dataset import Dataset
+### facilitates train test split, splitting arrays or matrices into random train and test subjects
+from torch.utils.data.dataset import Dataset ### abstract class representing Dataset
 import pdb
 from tqdm import tqdm 
 from joblib  import parallel_backend, Parallel, delayed
-from collections import OrderedDict
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+### enables lightweight pipelining, through:
+###     transparent disk-caching of functions and lazy re-evaluation
+###     easy simple parallel computing. optimized to be fast and robust, specific optimizations for numpy arrays
+from collections import OrderedDict ### subclass of dictionary that remembers orders in which entries were added
+from torch.optim.lr_scheduler import ReduceLROnPlateau ### reduce learning rate when metric has stopped improving
 
 def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
+    return sum(p.numel() for p in model.parameters() if p.requires_grad) ### only counted if gradient is required
 def save_checkpoint(state, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
 
@@ -25,6 +30,8 @@ def weights_init(m):
                     nn.init.constant_(param, 0.0)
                 elif 'weight' in name:
                     nn.init.xavier_normal_(param)
+                    ### also known as glorot initializer, randomly samples from segmented version of normal distribution
+                    ### stdev determined using number of input and output units in weight tensor
         
         
 def load_checkoutpoint(model,optimizer,checkpoint_path):
@@ -38,7 +45,7 @@ def load_checkoutpoint(model,optimizer,checkpoint_path):
         try:
             model.load_state_dict(checkpoint['model'])
         except:
-            model.load_state_dict({k.replace('module.',''):v for k,v in checkpoint['model'].items()})
+            model.load_state_dict({k.replace('module.',''):v for k,v in checkpoint['model'].items()}) ### i see the issue now... but why?
 #             model.load_state_dict({k.replace('module.',''):v for k,v in torch.load('checkpoint.pt').items()})
 
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -59,12 +66,14 @@ def Load_model(args,model,checkpoint_path,model_path):
     criterion = {
         'mse'     : nn.MSELoss(),
         'l1'      : nn.L1Loss(),
-        'l1smooth': nn.SmoothL1Loss(),
-        'cosine'  : nn.CosineEmbeddingLoss()}
+        'l1smooth': nn.SmoothL1Loss(), ### portion of l1 norm near 0 is replaced with l2 norm
+        'cosine'  : nn.CosineEmbeddingLoss()} ### 1 - cosine similarity of the predicted and actual outputs,
+                                              ### or max(0, margin-cos(x₁,x₂)), for some positive margin
 
-    device    = torch.device(f'cuda:{args.gpu}')
+    device    = torch.device(f'cuda:{args.gpu}') ### context manager that selects device
  
-    criterion = criterion[args.loss].to(device)
+    criterion = criterion[args.loss].to(device) ### torch.tensor.to sends the argument to the
+                                                ### desired device as the correct dtype
     
     optimizers = {
         'adam'    : Adam(model.parameters(),lr=args.lr,weight_decay=0),
@@ -73,8 +82,21 @@ def Load_model(args,model,checkpoint_path,model_path):
     
     optimizer = optimizers[args.optim]
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=44, verbose=True, threshold=1e-8, threshold_mode='rel', cooldown=22, min_lr=0, eps=1e-8)
-    
-    if args.resume:
+    '''
+    mode: min/max.  min - lr reduced when quantity has stopped decreasing
+                    max - lr reduced when quantity has stopped increasing
+    factor: factor by which learning rate is reduced
+    patience: number of samples before reduction
+    verbose: if True, prints a message to stdout for each update
+    threshold: threshold for optimum, default 1e-4
+    threshold_mode: rel/abs. fractional threshold or absolute threshold
+    cooldown: number of samples after reduction before resuming normal operation
+    min_lr: lower bound on learning rate of all or individual param groups
+    eps: minimal decay applied to lr
+    '''
+
+
+    if args.resume: ### ??? How is resume changed?
         model,epoch,best_loss,optimizer = load_checkoutpoint(model,optimizer,checkpoint_path)
     elif args.retrain:
         model,epoch,best_loss,optimizer = load_checkoutpoint(model,optimizer,model_path)
@@ -103,11 +125,20 @@ def Load_data(args, Train_path):
                               shuffle=True, num_workers=4, pin_memory=False),
         'val'  :DataLoader(val_dataset, batch_size=args.batch_size,
                             num_workers=4, pin_memory=False)
+        
     }
+
+    '''
+    dataset: dataset from which to load data,
+    batch_size: samples per batch to laod
+    shuffle: whether or not to reshuffle data at each epoch
+    num_workers: number of subprocess to use for data loading
+    pin_memory: if true, data loader will copy tensors into device before returning them
+    '''
 
     return loader
 
-def load_torch(path):
+def load_torch(path): ### see line 48
     return torch.load(path)
 
 
@@ -120,7 +151,7 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         
         noisy, sr = librosa.load(self.n_paths[index],sr=16000)
-        sep_y, y_phase,y_len = make_spectrum(y=noisy,feature_type ='spec')
+        sep_y, y_phase,y_len = make_spectrum(y=noisy,feature_type ='spec') ### from util.py
         # print('sep_y.shape = ', sep_y.shape)
         
         clean, sr = librosa.load(self.c_paths[index],sr=16000)
