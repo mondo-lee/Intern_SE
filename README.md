@@ -18,7 +18,26 @@ python main.py --model BLSTM_01 --target MAP --batch_size 1 --epochs 50 \
 --lr　　　　　　　　　　training learn rate  
 --task　　　　　　　　　defined your datasets  
 
-## Environment Setup  
+## Edits in Updated
+
+Building on the annotations in the `commented` branch, this branch seeks to update the code with newer library functionalities, most notably replacing librosa with torchaudio. In addition, docstrings will be added wherever relevant.
+
+## Environment Setup (New)
+```
+python---------3.10.11
+torch----------2.0.1+cu117
+torchaudio-----2.0.2+cu117
+numpy----------1.25.0
+tensorboardx---2.6.1
+matplotlib-----3.7.1
+scikit-learn---1.2.2
+tqdm-----------4.65.0
+pandas---------2.0.2
+pystoi---------0.3.3
+pesq-----------0.0.4
+```
+
+## Environment Setup (Old)
 python-----------3.6.13  
 torch------------1.10.0  
 librosa----------0.9.1  
